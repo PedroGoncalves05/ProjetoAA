@@ -2,23 +2,19 @@ import matplotlib.pyplot as plt
 import time
 import sys
 
-# Importações do projeto
 from AgenteAprendizagem import AgenteAprendizagem
 from AmbienteFarol import AmbienteFarol
 from AmbienteLabirinto import AmbienteLabirinto
 from VisualizadorGUI import VisualizadorGUI
 
-# --- Configurações ---
-NUM_EPISODIOS_TREINO = 2000  # Aumentado para lidar com os novos obstáculos
+NUM_EPISODIOS_TREINO = 2000
 MAX_PASSOS_POR_EPISODIO = 100
-FATOR_EXPLORACAO_INICIAL = 0.4 # Começamos com mais exploração
+FATOR_EXPLORACAO_INICIAL = 0.4
 INTERVALO_RELATORIO = 50
 
 
 def rodar_episodio(agente, ambiente, gui=None):
-    """
-    Executa um episódio e retorna (passos, recompensa, sucesso).
-    """
+
     ambiente.posicoes_agentes = {}
     ambiente.adicionar_agente(agente)
     agente.estado_anterior = None
@@ -44,7 +40,7 @@ def rodar_episodio(agente, ambiente, gui=None):
             gui.desenhar_ambiente(ambiente, agente)
             time.sleep(0.05)
 
-        # Recompensa >= 90 indica que chegou ao objetivo
+
         if recompensa >= 90:
             terminou = True
             sucesso = True
@@ -70,7 +66,6 @@ def main():
     accoes = ["Norte", "Sul", "Este", "Oeste"]
     agente = AgenteAprendizagem("Robo1", accoes)
 
-    # Configuração inicial do Epsilon
     agente.epsilon = FATOR_EXPLORACAO_INICIAL
 
     historico_passos = []
@@ -86,7 +81,7 @@ def main():
     tempo_inicio = time.time()
 
     for i in range(1, NUM_EPISODIOS_TREINO + 1):
-        # Implementação do decaimento do Epsilon (Exploração diminui com o tempo)
+
         if agente.epsilon > 0.05:
             agente.epsilon *= 0.999
 
@@ -116,7 +111,7 @@ def main():
     print("-" * 85)
     print(f"Treino concluído em {tempo_total:.2f} segundos.")
 
-    # Geração do Gráfico
+
     print("\nA gerar gráfico de aprendizagem...")
     plt.figure(figsize=(10, 6))
     plt.plot(historico_passos, alpha=0.3, color='gray', label='Passos (Episódio)')
@@ -135,16 +130,15 @@ def main():
     plt.grid(True, linestyle='--', alpha=0.6)
     plt.show()
 
-    # Modo Demonstração
+
     print(f"\n--- MODO DEMONSTRAÇÃO (GUI) ---")
     input("Pressione ENTER para abrir a visualização...")
 
-    agente.set_modo_teste(True)  # No modo teste o agente não explora, usa a Q-Table
+    agente.set_modo_teste(True)
     amb_teste = ambiente_classe()
     gui = VisualizadorGUI()
 
     try:
-        # Aumentamos os passos na demo para permitir que ele contorne obstáculos
         passos, _, _ = rodar_episodio(agente, amb_teste, gui=gui)
         print(f"Demonstração terminada em {passos} passos.")
         input("Pressione ENTER na consola para sair...")

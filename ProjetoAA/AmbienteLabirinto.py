@@ -8,15 +8,15 @@ class AmbienteLabirinto(Ambiente):
     def __init__(self):
         super().__init__()
         self.grelha = [
-            [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],  # Trap no (4,0) até (9,0)
+            [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
             [1, 1, 0, 1, 0, 1, 1, 1, 1, 0],
             [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-            [0, 1, 1, 1, 1, 1, 0, 1, 1, 1],  # Parede quase total no Y=3
-            [0, 1, 0, 0, 0, 0, 0, 1, 0, 0],  # Trap no (8,4)
+            [0, 1, 1, 1, 1, 1, 0, 1, 1, 1],
+            [0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
             [0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-            [0, 0, 0, 1, 0, 0, 0, 0, 0, 1],  # Trap no (4,6) até (8,6)
+            [0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
             [1, 1, 1, 1, 0, 1, 1, 1, 1, 1],
-            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],  # Trap no (0,8) até (4,8)
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
             [0, 1, 1, 1, 0, 0, 0, 1, 1, 0]
         ]
         self.largura = 10
@@ -29,7 +29,7 @@ class AmbienteLabirinto(Ambiente):
 
     def adicionar_agente(self, agente: Agente):
         self.agentes.append(agente)
-        self.posicoes_agentes[agente.nome] = Posicao(0, 0)  # Começa no (0,0)
+        self.posicoes_agentes[agente.nome] = Posicao(0, 0)
 
     def observacaoPara(self, agente: Agente) -> Observacao:
         pos = self.posicoes_agentes[agente.nome]

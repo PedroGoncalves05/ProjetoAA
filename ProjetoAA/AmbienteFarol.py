@@ -11,12 +11,12 @@ class AmbienteFarol(Ambiente):
         self.posicoes_agentes = {}
         self.posicao_farol = None
 
-        # Planta com obstáculos (bordas e ilhas espalhadas)
+
         self.obstaculos = [
-            Posicao(0, 5), Posicao(0, 6), Posicao(9, 3), Posicao(9, 4),  # Bordas
-            Posicao(4, 0), Posicao(5, 0), Posicao(2, 9),  # Bordas
-            Posicao(2, 2), Posicao(4, 4), Posicao(6, 2),  # Ilhas
-            Posicao(3, 7), Posicao(7, 5), Posicao(8, 1), Posicao(5, 8)  # Ilhas
+            Posicao(0, 5), Posicao(0, 6), Posicao(9, 3), Posicao(9, 4),
+            Posicao(4, 0), Posicao(5, 0), Posicao(2, 9),
+            Posicao(2, 2), Posicao(4, 4), Posicao(6, 2),
+            Posicao(3, 7), Posicao(7, 5), Posicao(8, 1), Posicao(5, 8)
         ]
         self.inicializar_estado("")
 
@@ -24,7 +24,7 @@ class AmbienteFarol(Ambiente):
         self.posicao_farol = Posicao(self.largura - 1, self.altura - 1)
 
     def atualizacao(self):
-        # Implementação obrigatória para evitar erro de classe abstrata
+
         pass
 
     def adicionar_agente(self, agente: Agente):
@@ -34,7 +34,7 @@ class AmbienteFarol(Ambiente):
     def observacaoPara(self, agente: Agente) -> Observacao:
         pos_agente = self.posicoes_agentes[agente.nome]
 
-        # Direção do Farol
+
         dx = self.posicao_farol.x - pos_agente.x
         dy = self.posicao_farol.y - pos_agente.y
         dir_farol = ""
@@ -48,18 +48,18 @@ class AmbienteFarol(Ambiente):
             dir_farol += "O"
         if dir_farol == "": dir_farol = "Aqui"
 
-        # Sensores de Obstáculos (vê se há parede em N, S, E, O)
+
         obs_proximidade = ""
         for d_nome in ["Norte", "Sul", "Este", "Oeste"]:
             p_teste = pos_agente.obter_nova_posicao(d_nome)
-            # Verifica se está fora do mapa ou se é obstáculo
+
             if not (0 <= p_teste.x < self.largura and 0 <= p_teste.y < self.altura) or \
                     any(obs.x == p_teste.x and obs.y == p_teste.y for obs in self.obstaculos):
-                obs_proximidade += "1"  # Parede detetada
+                obs_proximidade += "1"
             else:
-                obs_proximidade += "0"  # Livre
+                obs_proximidade += "0"
 
-        # O novo estado será ex: "NE_1010" (Direção NE, obstáculos a Norte e Este)
+
         return Observacao(f"{dir_farol}_{obs_proximidade}")
 
     def agir(self, accao: Accao, agente: Agente) -> float:
@@ -67,12 +67,11 @@ class AmbienteFarol(Ambiente):
         dist_anterior = pos_atual.distancia_euclidiana(self.posicao_farol)
         nova_pos = pos_atual.obter_nova_posicao(accao.tipo)
 
-        # Verificação de colisão
+
         fora_limites = not (0 <= nova_pos.x < self.largura and 0 <= nova_pos.y < self.altura)
         e_obstaculo = any(obs.x == nova_pos.x and obs.y == nova_pos.y for obs in self.obstaculos)
 
         if fora_limites or e_obstaculo:
-            # O agente não se move, recebe penalização e continua na posição atual
             return -2.0
 
         self.posicoes_agentes[agente.nome] = nova_pos
