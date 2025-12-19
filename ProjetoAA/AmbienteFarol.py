@@ -1,84 +1,128 @@
+import math
 from Ambiente import Ambiente
 from Agente import Agente
-from data_types import Observacao, Accao, Posicao
+from data_types import Accao, Posicao
 
 
 class AmbienteFarol(Ambiente):
-    def __init__(self, largura=10, altura=10):
+    def __init__(self):
         super().__init__()
-        self.largura = largura
-        self.altura = altura
+        self.largura = 10
+        self.altura = 10
+
         self.posicoes_agentes = {}
-        self.posicao_farol = None
 
+        # Objetivo
+        self.posicao_farol = Posicao(9, 5)
 
+        # Obstáculos
         self.obstaculos = [
             Posicao(0, 5), Posicao(0, 6), Posicao(9, 3), Posicao(9, 4),
             Posicao(4, 0), Posicao(5, 0), Posicao(2, 9),
             Posicao(2, 2), Posicao(4, 4), Posicao(6, 2),
             Posicao(3, 7), Posicao(7, 5), Posicao(8, 1), Posicao(5, 8)
         ]
-        self.inicializar_estado("")
 
-    def inicializar_estado(self, mapa_inicial: str):
-        self.posicao_farol = Posicao(self.largura - 1, self.altura - 1)
+        # --- CONFIGURAÇÃO DA LUZ ---
+        self.angulo = 0
+        self.velocidade_rotacao = 30  # Roda 30 graus
+
+        # --- ALTERADO: A CADA 2 MOVIMENTOS ---
+        self.frequencia_rotacao = 2
+        self.contador_passos = 0
+
+        self.cache_luz = set()
+        self._calcular_feixe()
+
+    def inicializar_estado(self, mapa_inicial: str = None):
+        pass
 
     def atualizacao(self):
-
         pass
 
     def adicionar_agente(self, agente: Agente):
-        self.agentes.append(agente)
+        if agente not in self.agentes:
+            self.agentes.append(agente)
         self.posicoes_agentes[agente.nome] = Posicao(0, 0)
 
-    def observacaoPara(self, agente: Agente) -> Observacao:
-        pos_agente = self.posicoes_agentes[agente.nome]
+    def reiniciar_posicao_agente(self, agente: Agente):
+        self.posicoes_agentes[agente.nome] = Posicao(0, 0)
+        self.angulo = 0
+        self.contador_passos = 0
+        self._calcular_feixe()
 
+    def observacaoPara(self, agente: Agente) -> int:
+        p = self.posicoes_agentes[agente.nome]
+        return p.y * self.largura + p.x
 
-        dx = self.posicao_farol.x - pos_agente.x
-        dy = self.posicao_farol.y - pos_agente.y
-        dir_farol = ""
-        if dy > 0:
-            dir_farol += "N"
-        elif dy < 0:
-            dir_farol += "S"
-        if dx > 0:
-            dir_farol += "E"
-        elif dx < 0:
-            dir_farol += "O"
-        if dir_farol == "": dir_farol = "Aqui"
+    def _calcular_feixe(self):
+        """ Raycasting da luz """
+        self.cache_luz.clear()
 
+        rad = math.radians(self.angulo)
+        dx = math.cos(rad)
+        dy = math.sin(rad)
 
-        obs_proximidade = ""
-        for d_nome in ["Norte", "Sul", "Este", "Oeste"]:
-            p_teste = pos_agente.obter_nova_posicao(d_nome)
+        cx = self.posicao_farol.x + 0.5
+        cy = self.posicao_farol.y + 0.5
 
-            if not (0 <= p_teste.x < self.largura and 0 <= p_teste.y < self.altura) or \
-                    any(obs.x == p_teste.x and obs.y == p_teste.y for obs in self.obstaculos):
-                obs_proximidade += "1"
-            else:
-                obs_proximidade += "0"
+        distancia = 0
+        while True:
+            cx += dx * 0.2
+            cy += dy * 0.2
+            distancia += 0.2
 
+            ix = int(cx)
+            iy = int(cy)
 
-        return Observacao(f"{dir_farol}_{obs_proximidade}")
+            if not (0 <= ix < self.largura and 0 <= iy < self.altura):
+                break
+
+            pos_teste = Posicao(ix, iy)
+            if pos_teste in self.obstaculos:
+                break
+
+            if not (ix == self.posicao_farol.x and iy == self.posicao_farol.y):
+                self.cache_luz.add((ix, iy))
+
+            if distancia > 20: break
+
+    def _esta_iluminado(self, pos: Posicao) -> bool:
+        return (pos.x, pos.y) in self.cache_luz
 
     def agir(self, accao: Accao, agente: Agente) -> float:
         pos_atual = self.posicoes_agentes[agente.nome]
-        dist_anterior = pos_atual.distancia_euclidiana(self.posicao_farol)
-        nova_pos = pos_atual.obter_nova_posicao(accao.tipo)
+        tipo = accao.tipo if hasattr(accao, 'tipo') else accao
 
+        # 1. Movimento do Agente
+        nova_pos = pos_atual.obter_nova_posicao(tipo)
+        nx = max(0, min(nova_pos.x, self.largura - 1))
+        ny = max(0, min(nova_pos.y, self.altura - 1))
+        pos_tentativa = Posicao(nx, ny)
 
-        fora_limites = not (0 <= nova_pos.x < self.largura and 0 <= nova_pos.y < self.altura)
-        e_obstaculo = any(obs.x == nova_pos.x and obs.y == nova_pos.y for obs in self.obstaculos)
+        if pos_tentativa in self.obstaculos:
+            reward_move = -0.5
+        else:
+            pos_atual.x = nx
+            pos_atual.y = ny
+            reward_move = -0.1
 
-        if fora_limites or e_obstaculo:
-            return -2.0
+        # 2. --- ROTAÇÃO DA LUZ ---
+        self.contador_passos += 1
 
-        self.posicoes_agentes[agente.nome] = nova_pos
+        # Verifica se atingiu 2 passos
+        if self.contador_passos >= self.frequencia_rotacao:
+            self.angulo = (self.angulo + self.velocidade_rotacao) % 360
+            self._calcular_feixe()
+            self.contador_passos = 0  # Reset ao contador
 
-        if nova_pos == self.posicao_farol:
-            return 100.0
+        # 3. Verificar iluminação
+        reward_luz = 0.0
+        if self._esta_iluminado(pos_atual):
+            reward_luz = 2.0
 
-        dist_nova = nova_pos.distancia_euclidiana(self.posicao_farol)
-        shaping = (dist_anterior - dist_nova) * 10
-        return shaping - 1.0
+            # 4. Vitória
+        if pos_atual == self.posicao_farol:
+            return 100.0 + reward_luz
+
+        return reward_move + reward_luz

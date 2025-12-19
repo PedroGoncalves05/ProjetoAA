@@ -1,66 +1,100 @@
+import numpy as np
 import random
-from typing import List, Dict, Tuple
 from Agente import Agente
-from data_types import Observacao, Accao
 
 
 class AgenteAprendizagem(Agente):
-    def __init__(self, nome: str, accoes_possiveis: List[str]):
+    def __init__(self, nome, accoes):
         super().__init__(nome)
-        self.accoes_possiveis = accoes_possiveis
-        self.q_table: Dict[Tuple[str, str], float] = {}
+        self.accoes = accoes
+        self.num_accoes = len(accoes)
 
-        self.alpha = 0.1
-        self.gamma = 0.9
-        self.epsilon = 0.1
-        self.modo_teste = False
+        # --- HIPERPARÂMETROS ---
+        self.alpha = 0.5  # Taxa de aprendizagem
+        self.gamma = 0.95  # Fator de desconto
+        self.epsilon = 1.0  # Exploração inicial (100%)
 
-        self.estado_anterior = None
-        self.accao_anterior = None
-        self.ultimo_reward = 0.0
-        self.estado_atual = None
+        # --- MEMÓRIA (Q-TABLE) ---
+        # 100 estados x N Ações
+        self.q_table = np.zeros((100, self.num_accoes))
 
-    def cria(self, nome_do_ficheiro_parametros: str) -> 'Agente':
-        return self
+        # Variáveis temporárias para o ciclo de aprendizagem
+        self.estado_anterior_id = None
+        self.accao_anterior_idx = None
+        self.recompensa_anterior = 0
+
+    def cria(self):
+        return AgenteAprendizagem(self.nome, self.accoes)
 
     def set_modo_teste(self, ativar: bool):
-        self.modo_teste = ativar
-
-    def observacao(self, obs: Observacao):
-        self.estado_atual = str(obs.data)
-
-    def avaliacaoEstadoAtual(self, recompensa: float):
-        self.ultimo_reward = recompensa
-
-    def age(self) -> Accao:
-        if self.estado_anterior is not None and self.accao_anterior is not None and not self.modo_teste:
-            self._aprender_q_learning()
-
-        acao_escolhida = self._escolher_acao(self.estado_atual)
-
-        self.estado_anterior = self.estado_atual
-        self.accao_anterior = acao_escolhida
-
-        return Accao(acao_escolhida)
-
-    def _aprender_q_learning(self):
-        chave_anterior = (self.estado_anterior, self.accao_anterior)
-        q_antigo = self.q_table.get(chave_anterior, 0.0)
-
-        max_q_atual = self._obter_max_q(self.estado_atual)
-
-        novo_q = q_antigo + self.alpha * (self.ultimo_reward + (self.gamma * max_q_atual) - q_antigo)
-        self.q_table[chave_anterior] = novo_q
-
-    def _obter_max_q(self, estado: str) -> float:
-        valores = [self.q_table.get((estado, a), 0.0) for a in self.accoes_possiveis]
-        return max(valores) if valores else 0.0
-
-    def _escolher_acao(self, estado: str) -> str:
-        if self.modo_teste or random.random() > self.epsilon:
-            q_values = {a: self.q_table.get((estado, a), 0.0) for a in self.accoes_possiveis}
-            max_val = max(q_values.values())
-            melhores_acoes = [a for a, q in q_values.items() if q == max_val]
-            return random.choice(melhores_acoes)
+        """ Desativa a exploração (epsilon=0) para a demo final """
+        if ativar:
+            self.epsilon = 0.0
+            print(f"Modo Teste ATIVADO para {self.nome} (Epsilon=0)")
         else:
-            return random.choice(self.accoes_possiveis)
+            self.epsilon = 1.0
+
+    def observacao(self, estado_id):
+        """
+        Recebe o novo estado, converte para INT com segurança e aprende.
+        """
+        # --- CONVERSÃO SEGURA (Resolve erros de tipo) ---
+        try:
+            novo_estado_id = int(estado_id)
+        except (TypeError, ValueError):
+            try:
+                novo_estado_id = int(str(estado_id))
+            except:
+                novo_estado_id = 0  # Fallback
+
+        # --- APRENDIZAGEM (Q-LEARNING STANDARD) ---
+        if (self.estado_anterior_id is not None) and (self.accao_anterior_idx is not None):
+            s = self.estado_anterior_id
+            a = self.accao_anterior_idx
+            r = self.recompensa_anterior
+            s_prime = novo_estado_id
+
+            # Verificar limites da tabela
+            if s < len(self.q_table) and s_prime < len(self.q_table):
+                q_antigo = self.q_table[s, a]
+                max_q_futuro = np.max(self.q_table[s_prime, :])
+
+                # Equação de Bellman
+                novo_q = q_antigo + self.alpha * (r + (self.gamma * max_q_futuro) - q_antigo)
+                self.q_table[s, a] = novo_q
+
+        # Atualizar memória
+        self.estado_anterior_id = novo_estado_id
+
+    def age(self):
+        """ Escolhe a ação (Epsilon-Greedy) """
+        estado_atual = self.estado_anterior_id
+
+        if estado_atual is None or estado_atual >= len(self.q_table):
+            estado_atual = 0
+
+        # Exploração
+        if random.random() < self.epsilon:
+            acao_idx = random.randint(0, self.num_accoes - 1)
+        # Aproveitamento
+        else:
+            valores_q = self.q_table[estado_atual, :]
+            # Pequeno ruído para desempatar zeros
+            acao_idx = np.argmax(valores_q + np.random.randn(1, self.num_accoes) * 0.001)
+
+        self.accao_anterior_idx = acao_idx
+        return self.accoes[acao_idx]
+
+    def avaliacaoEstadoAtual(self, recompensa):
+        """ Recebe a recompensa e aprende se for o fim do episódio """
+        self.recompensa_anterior = recompensa
+
+        # Se for estado terminal (vitória/derrota), aprende já
+        if abs(recompensa) > 10:
+            s = self.estado_anterior_id
+            a = self.accao_anterior_idx
+            if s is not None and a is not None and s < len(self.q_table):
+                q_antigo = self.q_table[s, a]
+                # Sem max_q_futuro porque o jogo acabou
+                novo_q = q_antigo + self.alpha * (recompensa - q_antigo)
+                self.q_table[s, a] = novo_q

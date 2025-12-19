@@ -1,24 +1,36 @@
 import matplotlib.pyplot as plt
 import time
 import sys
+import numpy as np
 
+# Importações
 from AgenteAprendizagem import AgenteAprendizagem
 from AmbienteFarol import AmbienteFarol
 from AmbienteLabirinto import AmbienteLabirinto
-from VisualizadorGUI import VisualizadorGUI
+from data_types import Posicao
 
-NUM_EPISODIOS_TREINO = 2000
-MAX_PASSOS_POR_EPISODIO = 100
-FATOR_EXPLORACAO_INICIAL = 0.4
-INTERVALO_RELATORIO = 50
+# Tenta carregar a GUI
+try:
+    from VisualizadorGUI import VisualizadorGUI
+except ImportError:
+    VisualizadorGUI = None
+    print("Aviso: VisualizadorGUI não encontrado.")
+
+# --- CONFIGURAÇÕES ---
+NUM_EPISODIOS_TREINO = 1000
+MAX_PASSOS_POR_EPISODIO = 500
+FATOR_EXPLORACAO_INICIAL = 1.0
+INTERVALO_RELATORIO = 100
 
 
-def rodar_episodio(agente, ambiente, gui=None):
+def rodar_episodio(agente, ambiente, gui=None, mapa_calor=None):
+    if hasattr(ambiente, 'reiniciar_posicao_agente'):
+        ambiente.reiniciar_posicao_agente(agente)
+    elif agente not in ambiente.agentes:
+        ambiente.adicionar_agente(agente)
 
-    ambiente.posicoes_agentes = {}
-    ambiente.adicionar_agente(agente)
-    agente.estado_anterior = None
-    agente.accao_anterior = None
+    agente.estado_anterior_id = None
+    agente.accao_anterior_idx = None
 
     passos = 0
     recompensa_total = 0
@@ -32,120 +44,126 @@ def rodar_episodio(agente, ambiente, gui=None):
         agente.observacao(obs)
         acao = agente.age()
         recompensa = ambiente.agir(acao, agente)
-
         recompensa_total += recompensa
+
+        if mapa_calor is not None:
+            pos = ambiente.posicoes_agentes[agente.nome]
+            if 0 <= pos.y < len(mapa_calor) and 0 <= pos.x < len(mapa_calor[0]):
+                mapa_calor[pos.y][pos.x] += 1
+
         agente.avaliacaoEstadoAtual(recompensa)
 
         if gui:
             gui.desenhar_ambiente(ambiente, agente)
             time.sleep(0.05)
 
+        pos_atual = ambiente.posicoes_agentes[agente.nome]
 
-        if recompensa >= 90:
+        # Verifica se chegou ao destino
+        destino = getattr(ambiente, 'posicao_final', None) or getattr(ambiente, 'posicao_farol', None)
+
+        if destino and pos_atual == destino:
             terminou = True
             sucesso = True
 
     return passos, recompensa_total, sucesso
 
 
-def main():
-    print("\n=== SIMULADOR DE SISTEMAS MULTI-AGENTE ===")
-    print("1. Problema do Farol")
-    print("2. Problema do Labirinto")
-    escolha = input("Escolha o cenário (1 ou 2): ")
+def desenhar_graficos(hist_passos, hist_rewards, titulo):
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
-    if escolha == '2':
-        ambiente_classe = AmbienteLabirinto
-        nome_prob = "Labirinto"
-    else:
-        ambiente_classe = AmbienteFarol
-        nome_prob = "Farol"
+    ax1.plot(hist_passos, color='#ADD8E6', alpha=0.6, label='Aprendizagem')
+    janela = 50
+    if len(hist_passos) > janela:
+        media = np.convolve(hist_passos, np.ones(janela) / janela, mode='valid')
+        ax1.plot(range(janela - 1, len(hist_passos)), media, color='blue', linewidth=2)
+    ax1.set_title(f"Gráfico de Aprendizagem - {titulo}")
+    ax1.legend()
 
-    print(f"\n--- INICIANDO TREINO: {nome_prob} ({NUM_EPISODIOS_TREINO} Eps) ---")
-
-    accoes = ["Norte", "Sul", "Este", "Oeste"]
-    agente = AgenteAprendizagem("Robo1", accoes)
-
-    agente.epsilon = FATOR_EXPLORACAO_INICIAL
-
-    historico_passos = []
-    soma_passos = 0
-    soma_reward = 0
-    sucessos_lote = 0
-
-    print("-" * 85)
-    print(
-        f"| {'Lote (Episódios)':^18} | {'Passos (Média)':^15} | {'Reward (Média)':^15} | {'Sucesso %':^10} | {'Epsilon':^8} |")
-    print("-" * 85)
-
-    tempo_inicio = time.time()
-
-    for i in range(1, NUM_EPISODIOS_TREINO + 1):
-
-        if agente.epsilon > 0.05:
-            agente.epsilon *= 0.999
-
-        amb = ambiente_classe()
-        passos, recompensa, sucesso = rodar_episodio(agente, amb, gui=None)
-
-        historico_passos.append(passos)
-        soma_passos += passos
-        soma_reward += recompensa
-        if sucesso:
-            sucessos_lote += 1
-
-        if i % INTERVALO_RELATORIO == 0:
-            media_passos = soma_passos / INTERVALO_RELATORIO
-            media_reward = soma_reward / INTERVALO_RELATORIO
-            taxa_sucesso = (sucessos_lote / INTERVALO_RELATORIO) * 100
-            intervalo_str = f"{i - INTERVALO_RELATORIO + 1}-{i}"
-
-            print(
-                f"| {intervalo_str:^18} | {media_passos:^15.1f} | {media_reward:^15.1f} | {taxa_sucesso:^9.0f}% | {agente.epsilon:^8.2f} |")
-
-            soma_passos = 0
-            soma_reward = 0
-            sucessos_lote = 0
-
-    tempo_total = time.time() - tempo_inicio
-    print("-" * 85)
-    print(f"Treino concluído em {tempo_total:.2f} segundos.")
-
-
-    print("\nA gerar gráfico de aprendizagem...")
-    plt.figure(figsize=(10, 6))
-    plt.plot(historico_passos, alpha=0.3, color='gray', label='Passos (Episódio)')
-
-    media_movel_janela = 20
-    if len(historico_passos) > media_movel_janela:
-        medias = [sum(historico_passos[k:k + media_movel_janela]) / media_movel_janela
-                  for k in range(len(historico_passos) - media_movel_janela)]
-        plt.plot(range(media_movel_janela, len(historico_passos)), medias,
-                 color='blue', linewidth=2, label=f'Média Móvel ({media_movel_janela})')
-
-    plt.title(f'Curva de Aprendizagem - {nome_prob}')
-    plt.xlabel('Episódio')
-    plt.ylabel('Passos até ao Objetivo')
-    plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.6)
+    ax2.plot(hist_rewards, color='#FA8072', alpha=0.6, label='Recompensa')
+    if len(hist_rewards) > janela:
+        media_r = np.convolve(hist_rewards, np.ones(janela) / janela, mode='valid')
+        ax2.plot(range(janela - 1, len(hist_rewards)), media_r, color='red', linewidth=2)
+    ax2.set_title(f"Gráfico de Recompensa - {titulo}")
+    ax2.legend()
+    plt.tight_layout()
     plt.show()
 
 
-    print(f"\n--- MODO DEMONSTRAÇÃO (GUI) ---")
-    input("Pressione ENTER para abrir a visualização...")
+def gerar_heatmap(matriz, titulo):
+    plt.figure(figsize=(8, 6))
+    plt.title(f"Heatmap - {titulo}")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    # 'nearest' e 'equal' garantem o aspeto de grelha
+    plt.imshow(matriz, cmap='hot', interpolation='nearest', aspect='equal')
+    plt.colorbar(label='Frequência de Visitas')
+    plt.tight_layout()
+    plt.show()
 
-    agente.set_modo_teste(True)
-    amb_teste = ambiente_classe()
-    gui = VisualizadorGUI()
 
-    try:
-        passos, _, _ = rodar_episodio(agente, amb_teste, gui=gui)
-        print(f"Demonstração terminada em {passos} passos.")
-        input("Pressione ENTER na consola para sair...")
-    except Exception as e:
-        print(f"Erro na GUI: {e}")
-    finally:
-        gui.fechar()
+def main():
+    print("=== SIMULADOR SMA ===")
+    print("1. Q-Learning")
+    print("2. Novelty Search")
+    op_algo = input("Algoritmo (1/2): ").strip()
+    nome_algo = "NOVELTY" if op_algo == '2' else "QLEARNING"
+
+    print("\n1. Ambiente Farol")
+    print("2. Ambiente Labirinto")
+    op_amb = input("Ambiente (1/2): ").strip()
+
+    if op_amb == '2':
+        amb = AmbienteLabirinto()
+        nome_prob = "Labirinto"
+        if hasattr(amb, 'set_modo_novelty'):
+            amb.set_modo_novelty(nome_algo == "NOVELTY")
+    else:
+        amb = AmbienteFarol()
+        nome_prob = "Farol"
+
+    print(f"\n--- A TREINAR {nome_prob} ---")
+
+    agente = AgenteAprendizagem("Robo", ["Norte", "Sul", "Este", "Oeste"])
+    if hasattr(agente, 'algoritmo'): agente.algoritmo = nome_algo
+    agente.epsilon = FATOR_EXPLORACAO_INICIAL
+
+    # Matriz 10x10 para ambos os problemas
+    h = getattr(amb, 'altura', 10)
+    w = getattr(amb, 'largura', 10)
+    mapa_visitas = np.zeros((h, w))
+
+    historico_p = []
+    historico_r = []
+
+    for i in range(NUM_EPISODIOS_TREINO):
+        if agente.epsilon > 0.05: agente.epsilon *= 0.998
+        p, r, s = rodar_episodio(agente, amb, gui=None, mapa_calor=mapa_visitas)
+        historico_p.append(p)
+        historico_r.append(r)
+
+        if (i + 1) % INTERVALO_RELATORIO == 0:
+            print(f"Ep {i + 1}: Passos={p} | Rec={r:.1f}")
+
+    desenhar_graficos(historico_p, historico_r, nome_prob)
+
+    if VisualizadorGUI:
+        print("\n--- DEMONSTRAÇÃO VISUAL ---")
+        input("Enter para iniciar...")
+        agente.set_modo_teste(True)
+        amb.reiniciar_posicao_agente(agente)
+        gui = VisualizadorGUI(largura_grelha=amb.largura, altura_grelha=amb.altura)
+
+        try:
+            rodar_episodio(agente, amb, gui=gui)
+            print("Fim da demo.")
+            input("Enter para fechar GUI...")
+        except Exception as e:
+            print(f"Erro GUI: {e}")
+        finally:
+            gui.fechar()
+
+    gerar_heatmap(mapa_visitas, nome_prob)
 
 
 if __name__ == "__main__":
