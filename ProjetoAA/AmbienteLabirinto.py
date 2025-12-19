@@ -8,7 +8,7 @@ class AmbienteLabirinto(Ambiente):
     def __init__(self):
         super().__init__()
         # 1 = Parede, 0 = Livre
-        # MAPA ORIGINAL (Complexo)
+        # MAPA ORIGINAL
         self.grelha = [
             [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
             [1, 1, 0, 1, 0, 1, 1, 1, 1, 0],
@@ -26,7 +26,6 @@ class AmbienteLabirinto(Ambiente):
         self.posicao_final = Posicao(9, 9)
         self.posicoes_agentes = {}
 
-        # Mapa de visitas (Novelty)
         self.mapa_visitas = np.zeros((self.altura, self.largura))
         self.modo_novelty = False
 
@@ -92,8 +91,7 @@ class AmbienteLabirinto(Ambiente):
                 if novo_x == self.posicao_final.x and novo_y == self.posicao_final.y:
                     recompensa += 20.0
             else:
-                # Q-Learning Puro
-                recompensa = -0.1  # Custo por passo
+                recompensa = -0.1
 
                 if novo_x == self.posicao_final.x and novo_y == self.posicao_final.y:
                     recompensa = 100.0

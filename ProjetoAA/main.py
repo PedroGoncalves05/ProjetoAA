@@ -3,20 +3,17 @@ import time
 import sys
 import numpy as np
 
-# Importações
 from AgenteAprendizagem import AgenteAprendizagem
 from AmbienteFarol import AmbienteFarol
 from AmbienteLabirinto import AmbienteLabirinto
 from data_types import Posicao
 
-# Tenta carregar a GUI
 try:
     from VisualizadorGUI import VisualizadorGUI
 except ImportError:
     VisualizadorGUI = None
     print("Aviso: VisualizadorGUI não encontrado.")
 
-# --- CONFIGURAÇÕES ---
 NUM_EPISODIOS_TREINO = 1000
 MAX_PASSOS_POR_EPISODIO = 500
 FATOR_EXPLORACAO_INICIAL = 1.0
@@ -95,7 +92,6 @@ def gerar_heatmap(matriz, titulo):
     plt.title(f"Heatmap - {titulo}")
     plt.xlabel("X")
     plt.ylabel("Y")
-    # 'nearest' e 'equal' garantem o aspeto de grelha
     plt.imshow(matriz, cmap='hot', interpolation='nearest', aspect='equal')
     plt.colorbar(label='Frequência de Visitas')
     plt.tight_layout()
@@ -128,7 +124,6 @@ def main():
     if hasattr(agente, 'algoritmo'): agente.algoritmo = nome_algo
     agente.epsilon = FATOR_EXPLORACAO_INICIAL
 
-    # Matriz 10x10 para ambos os problemas
     h = getattr(amb, 'altura', 10)
     w = getattr(amb, 'largura', 10)
     mapa_visitas = np.zeros((h, w))

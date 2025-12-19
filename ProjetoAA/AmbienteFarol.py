@@ -11,11 +11,8 @@ class AmbienteFarol(Ambiente):
         self.altura = 10
 
         self.posicoes_agentes = {}
-
-        # Objetivo
         self.posicao_farol = Posicao(9, 5)
 
-        # Obstáculos
         self.obstaculos = [
             Posicao(0, 5), Posicao(0, 6), Posicao(9, 3), Posicao(9, 4),
             Posicao(4, 0), Posicao(5, 0), Posicao(2, 9),
@@ -23,11 +20,8 @@ class AmbienteFarol(Ambiente):
             Posicao(3, 7), Posicao(7, 5), Posicao(8, 1), Posicao(5, 8)
         ]
 
-        # --- CONFIGURAÇÃO DA LUZ ---
         self.angulo = 0
         self.velocidade_rotacao = 30  # Roda 30 graus
-
-        # --- ALTERADO: A CADA 2 MOVIMENTOS ---
         self.frequencia_rotacao = 2
         self.contador_passos = 0
 
@@ -56,7 +50,6 @@ class AmbienteFarol(Ambiente):
         return p.y * self.largura + p.x
 
     def _calcular_feixe(self):
-        """ Raycasting da luz """
         self.cache_luz.clear()
 
         rad = math.radians(self.angulo)
@@ -94,7 +87,6 @@ class AmbienteFarol(Ambiente):
         pos_atual = self.posicoes_agentes[agente.nome]
         tipo = accao.tipo if hasattr(accao, 'tipo') else accao
 
-        # 1. Movimento do Agente
         nova_pos = pos_atual.obter_nova_posicao(tipo)
         nx = max(0, min(nova_pos.x, self.largura - 1))
         ny = max(0, min(nova_pos.y, self.altura - 1))
@@ -107,21 +99,17 @@ class AmbienteFarol(Ambiente):
             pos_atual.y = ny
             reward_move = -0.1
 
-        # 2. --- ROTAÇÃO DA LUZ ---
         self.contador_passos += 1
 
-        # Verifica se atingiu 2 passos
         if self.contador_passos >= self.frequencia_rotacao:
             self.angulo = (self.angulo + self.velocidade_rotacao) % 360
             self._calcular_feixe()
             self.contador_passos = 0  # Reset ao contador
 
-        # 3. Verificar iluminação
         reward_luz = 0.0
         if self._esta_iluminado(pos_atual):
             reward_luz = 2.0
 
-            # 4. Vitória
         if pos_atual == self.posicao_farol:
             return 100.0 + reward_luz
 
