@@ -11,14 +11,17 @@ class Agente(ABC):
     def __init__(self, nome: str):
         self.nome = nome
         self.sensores: List[Sensor] = []
+        self.ultima_observacao = None
 
-    @abstractmethod
-    def cria(self, nome_do_ficheiro_parametros: str) -> 'Agente':
-        pass
+    def instala(self, sensor: Sensor):
+        self.sensores.append(sensor)
 
-    @abstractmethod
-    def observacao(self, obs: Observacao):
-        pass
+    def observacao(self, obs_bruta: Any):
+        if self.sensores:
+            # O sensor transforma a posição bruta numa Observação útil
+            self.ultima_observacao = self.sensores[0].processa_observacao(obs_bruta)
+        else:
+            self.ultima_observacao = obs_bruta
 
     @abstractmethod
     def age(self) -> Accao:
@@ -26,10 +29,4 @@ class Agente(ABC):
 
     @abstractmethod
     def avaliacaoEstadoAtual(self, recompensa: float):
-        pass
-
-    def instala(self, sensor: Sensor):
-        self.sensores.append(sensor)
-
-    def comunica(self, mensagem: str, de_agente: 'Agente'):
         pass
