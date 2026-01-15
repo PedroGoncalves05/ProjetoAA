@@ -7,8 +7,6 @@ import numpy as np
 class AmbienteLabirinto(Ambiente):
     def __init__(self):
         super().__init__()
-        # 1 = Parede, 0 = Livre
-        # MAPA ORIGINAL
         self.grelha = [
             [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
             [1, 1, 0, 1, 0, 1, 1, 1, 1, 0],
@@ -71,7 +69,6 @@ class AmbienteLabirinto(Ambiente):
         novo_x = pos_atual.x + move_x
         novo_y = pos_atual.y + move_y
 
-        # Verificação de colisão
         bateu = False
         if not (0 <= novo_x < self.largura and 0 <= novo_y < self.altura):
             bateu = True
@@ -79,31 +76,22 @@ class AmbienteLabirinto(Ambiente):
             bateu = True
 
         if bateu:
-            # No Novelty, bater numa parede não é "novo", é apenas um erro
-            return -2.0
+            return -20.0
 
-            # Atualiza posição
         self.posicoes_agentes[agente.nome] = Posicao(novo_x, novo_y)
 
-        # Incrementa o mapa de visitas interno para o cálculo do Novelty
         self.mapa_visitas[novo_y][novo_x] += 1
         n_visitas = self.mapa_visitas[novo_y][novo_x]
 
         if self.modo_novelty:
-            # CÁLCULO DE NOVELTY:
-            # Recompensa inversamente proporcional ao número de visitas.
-            # Adicionamos um bónus extra se for a PRIMEIRA vez (n_visitas == 1)
             recompensa = 30.0 / (n_visitas ** 2)
 
             if n_visitas == 1:
                 recompensa += 15.0  # Bónus de descoberta
 
-            # No modo Novelty, a saída dá uma recompensa, mas não deve ser
-            # o único foco, caso contrário vira Q-Learning normal.
             if novo_x == self.posicao_final.x and novo_y == self.posicao_final.y:
-                recompensa += 20.0
+                recompensa += 100
         else:
-            # Q-Learning Normal com Shaping
             dist_nova = Posicao(novo_x, novo_y).distancia_euclidiana(self.posicao_final)
             recompensa = (dist_anterior - dist_nova) * 3.0 - 0.1
 

@@ -86,34 +86,23 @@ class AmbienteFarol(Ambiente):
     def agir(self, accao, agente):
         pos_atual = self.posicoes_agentes[agente.nome]
         dist_anterior = pos_atual.distancia_euclidiana(self.posicao_farol)
-
-        # Extração do tipo de ação (string ou ID)
         tipo = accao.tipo if hasattr(accao, 'tipo') else accao
 
         nova_pos = pos_atual.obter_nova_posicao(tipo)
 
-        # Garantir que não sai dos limites
         nx = max(0, min(nova_pos.x, self.largura - 1))
         ny = max(0, min(nova_pos.y, self.altura - 1))
         pos_tentativa = Posicao(nx, ny)
 
-        # Penalização por obstáculos
         if pos_tentativa in self.obstaculos:
             return -0.5
 
-            # Atualização da posição real
         pos_atual.x = nx
         pos_atual.y = ny
-
         dist_nova = pos_atual.distancia_euclidiana(self.posicao_farol)
-
-        # SHAPING: Recompensa positiva se encurtou a distância
         recompensa_shaping = (dist_anterior - dist_nova) * 5.0
-
-        # Bónus por estar na luz
         reward_luz = 2.0 if self._esta_iluminado(pos_atual) else 0.0
 
-        # Condição de vitória
         if pos_atual == self.posicao_farol:
             return 100.0 + reward_luz
 

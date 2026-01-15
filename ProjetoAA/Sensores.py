@@ -3,22 +3,15 @@ from data_types import Posicao, Observacao
 
 
 class SensorFarol(Sensor):
-    """
-    Simula uma visão orientada ao objetivo (Farol).
-    Fornece a direção relativa e indica se o agente está iluminado pelo feixe.
-    """
-
     def __init__(self, ambiente):
         self.ambiente = ambiente
 
     def processa_observacao(self, pos_agente: Posicao) -> Observacao:
         farol = self.ambiente.posicao_farol
 
-        # Verifica se o agente chegou ao objetivo
         if pos_agente == farol:
             return Observacao("Aqui")
 
-        # Cálculo da direção relativa para reduzir o espaço de estados [cite: 439]
         dx = farol.x - pos_agente.x
         dy = farol.y - pos_agente.y
 
@@ -27,10 +20,8 @@ class SensorFarol(Sensor):
         else:
             direcao = "Sul" if dy > 0 else "Norte"
 
-        # Adiciona estado de iluminação (Percepção de luz)
         iluminado = self.ambiente._esta_iluminado(pos_agente)
 
-        # Retorna um dicionário ou tuplo para o agente decidir com base na luz e direção
         return Observacao({"direcao": direcao, "luz": iluminado})
 
 
