@@ -3,30 +3,73 @@ from data_types import Posicao, Observacao
 
 
 class SensorFarol(Sensor):
+    """
+    Simula uma visão orientada ao objetivo (Farol).
+    Fornece a direção relativa e indica se o agente está iluminado pelo feixe.
+    """
+
     def __init__(self, ambiente):
         self.ambiente = ambiente
 
     def processa_observacao(self, pos_agente: Posicao) -> Observacao:
         farol = self.ambiente.posicao_farol
-        if pos_agente == farol: return Observacao("Aqui")
 
+        # Verifica se o agente chegou ao objetivo
+        if pos_agente == farol:
+            return Observacao("Aqui")
+
+        # Cálculo da direção relativa para reduzir o espaço de estados [cite: 439]
         dx = farol.x - pos_agente.x
         dy = farol.y - pos_agente.y
 
-        # Converte distância absoluta em direção relativa (reduz estados para a Q-Table)
         if abs(dx) > abs(dy):
-            res = "Este" if dx > 0 else "Oeste"
+            direcao = "Este" if dx > 0 else "Oeste"
         else:
-            res = "Sul" if dy > 0 else "Norte"
-        return Observacao(res)
+            direcao = "Sul" if dy > 0 else "Norte"
 
+        # Adiciona estado de iluminação (Percepção de luz)
+        iluminado = self.ambiente._esta_iluminado(pos_agente)
+
+        # Retorna um dicionário ou tuplo para o agente decidir com base na luz e direção
+        return Observacao({"direcao": direcao, "luz": iluminado})
 
 
 class SensorLabirinto(Sensor):
+    """
+    Implementa a percepção limitada (grelha de adjacência). [cite: 146, 504]
+    O agente apenas vê se as células vizinhas estão livres ou se são paredes.
+    """
+
     def __init__(self, ambiente):
         self.ambiente = ambiente
 
     def processa_observacao(self, pos_agente: Posicao) -> Observacao:
-        # No labirinto, o ID do estado (y * largura + x) é o mais eficiente para a Q-Table
-        id_estado = int(pos_agente.y * self.ambiente.largura + pos_agente.x)
-        return Observacao(id_estado)
+        # Define as direções a observar (Norte, Sul, Este, Oeste)
+        direcoes = {
+            "N": (0, -1),
+            "S": (0, 1),
+            "E": (1, 0),
+            "O": (-1, 0)
+        }
+
+        percepcao_local = {}
+
+        for nome, (dx, dy) in direcoes.items():
+            nx, ny = pos_agente.x + dx, pos_agente.y + dy
+
+            # Verifica limites do mapa e obstáculos [cite: 422]
+            if not (0 <= nx < self.ambiente.largura and 0 <= ny < self.ambiente.altura):
+                percepcao_local[nome] = "Parede"
+            elif self.ambiente.grelha[ny][nx] == 1:
+                percepcao_local[nome] = "Parede"
+            else:
+                percepcao_local[nome] = "Livre"
+
+        # O estado para a Q-Table pode ser a combinação destas paredes + ID da célula
+        # para garantir que o agente sabe onde está mas com visão limitada.
+        id_celula = int(pos_agente.y * self.ambiente.largura + pos_agente.x)
+
+        return Observacao({
+            "id": id_celula,
+            "vizinhos": percepcao_local
+        })
