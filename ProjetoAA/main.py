@@ -141,8 +141,15 @@ def main():
         gui = VisualizadorGUI(largura_grelha=amb.largura, altura_grelha=amb.altura)
 
         try:
-            rodar_episodio(agente, amb, gui=gui)
+            rodar_episodio(agente, amb, gui=gui, mapa_calor=mapa_visitas)
             print("Simulação terminada.")
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(8, 6))
+            plt.imshow(mapa_visitas, cmap='hot', interpolation='nearest')
+            plt.title(f"Mapa de Calor de Visitas - {nome_prob}")
+            plt.colorbar(label='Número de Visitas')
+            plt.show()
+
             input("Pressione Enter para fechar...")
         except Exception as e:
             print(f"Erro na visualização: {e}")
